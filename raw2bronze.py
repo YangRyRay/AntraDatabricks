@@ -9,6 +9,7 @@ rootPath = "/movie/"
 
 rawPath = rootPath + "raw/"
 bronzePath = rootPath + "bronze/"
+silverPath = rootPath + "silver/"
 
 # COMMAND ----------
 
@@ -30,6 +31,10 @@ file_type = "text"
 spark.conf.set(
   "fs.azure.account.key."+storage_account_name+".blob.core.windows.net",
   storage_account_access_key)
+
+# COMMAND ----------
+
+from azure.storage.blob import BlockBlobService 
 
 # COMMAND ----------
 
@@ -87,6 +92,7 @@ display(movie_data_exploded_df)
 # COMMAND ----------
 
 from pyspark.sql.functions import current_timestamp, lit
+import json
 
 movie_df = movie_data_exploded_df.select(
     "movie",
@@ -95,6 +101,7 @@ movie_df = movie_data_exploded_df.select(
     lit("new").alias("status"),
     current_timestamp().cast("date").alias("ingestdate"))
 
+
 # COMMAND ----------
 
 display(movie_df)
@@ -102,6 +109,8 @@ display(movie_df)
 # COMMAND ----------
 
 from pyspark.sql.functions import col
+dbutils.fs.rm(bronzePath, recurse=True)
+
 (movie_df.select(
         "datasource",
         "ingesttime",
@@ -139,4 +148,4 @@ LOCATION "{bronzePath}"
 
 # MAGIC %sql
 # MAGIC 
-# MAGIC SELECT * FROM movie_bronze
+# MAGIC SELECT * FROM movie_bronze WHERE movie_bronze.movie.id = 8747
