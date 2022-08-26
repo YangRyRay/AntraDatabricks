@@ -5,7 +5,7 @@
 
 # COMMAND ----------
 
-# %run ./raw2bronze
+# MAGIC %run ./raw2bronze
 
 # COMMAND ----------
 
@@ -117,6 +117,12 @@ silverQuarantine = silverDF_quarantine.withColumn(
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Language Table
+
+# COMMAND ----------
+
 from pyspark.sql.functions import *
 
 langSilver = silverDF_clean.select("OriginalLanguage").distinct()
@@ -155,6 +161,12 @@ LOCATION "{silverLangPath}"
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Genre Table
+
+# COMMAND ----------
+
 genreSilver=silverDF_clean.select(explode(silverDF_clean.genres).alias("genres"))
 genreSilver=genreSilver.select("genres.id","genres.name").distinct()
 genreSilver=genreSilver.where(genreSilver.name!="")
@@ -190,12 +202,28 @@ LOCATION "{silverGenrePath}"
 
 # COMMAND ----------
 
-movieSilver=silverDF_clean.select("BackdropUrl","Budget","CreatedBy","CreatedDate","Id","ImdbUrl","OriginalLanguage","Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate")
+# MAGIC %sql
+# MAGIC 
+# MAGIC SELECT * FROM genre_silver
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Movie Table
+
+# COMMAND ----------
+
+movieSilver=silverDF_clean.join(langSilver,langSilver.OriginalLanguage==silverDF_clean.OriginalLanguage,"left").select("BackdropUrl","Budget","CreatedBy","CreatedDate",silverDF_clean.Id,"ImdbUrl",langSilver.id.alias("LangID"),"Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate")
+
+display(movieSilver)
 
 # COMMAND ----------
 
 silverMoviePath =  silverPath + "movie/"
-( movieSilver.select("BackdropUrl","Budget","CreatedBy","CreatedDate","Id","ImdbUrl","OriginalLanguage","Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate"
+dbutils.fs.rm(silverMoviePath,recurse=True)
+
+( movieSilver.select("BackdropUrl","Budget","CreatedBy","CreatedDate","Id","ImdbUrl","LangID","Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate"
     )
     .write.format("delta")
     .mode("append")
@@ -206,17 +234,29 @@ silverMoviePath =  silverPath + "movie/"
 
 spark.sql(
     """
-DROP TABLE IF EXISTS Movie_silver
+DROP TABLE IF EXISTS movie_silver
 """
 )
 
 spark.sql(
     f"""
-CREATE TABLE Movie_silver
+CREATE TABLE movie_silver
 USING DELTA
 LOCATION "{silverMoviePath}"
 """
 )
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC 
+# MAGIC SELECT * FROM movie_silver
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Movie/Genre Junction Table
 
 # COMMAND ----------
 
@@ -285,7 +325,7 @@ update = {"status": "clean.status"}
 
 # MAGIC %md
 # MAGIC 
-# MAGIC # Fix quarantined
+# MAGIC # Fix Quarantined Data
 
 # COMMAND ----------
 
@@ -296,13 +336,13 @@ display(qDF)
 
 silverqDF = qDF.select("movie","movie.*")
 
-movieSilver=silverqDF.select("BackdropUrl","Budget","CreatedBy","CreatedDate","Id","ImdbUrl","OriginalLanguage","Overview","PosterUrl","Price","ReleaseDate","Revenue",abs("RunTime").alias("RunTime"),"Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate")
+movieSilver=silverqDF.join(langSilver,langSilver.OriginalLanguage==silverqDF.OriginalLanguage,"left").select("BackdropUrl","Budget","CreatedBy","CreatedDate",silverqDF.Id,"ImdbUrl",langSilver.id.alias("LangID"),"Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate")
 
 display(movieSilver)
 
 # COMMAND ----------
 
-( movieSilver.select("BackdropUrl","Budget","CreatedBy","CreatedDate","Id","ImdbUrl","OriginalLanguage","Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate"
+( movieSilver.select("BackdropUrl","Budget","CreatedBy","CreatedDate","Id","ImdbUrl","LangID","Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate"
     )
     .write.format("delta")
     .mode("append")
