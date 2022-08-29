@@ -73,8 +73,14 @@ silverDF = silverDF.dropDuplicates()
 
 # COMMAND ----------
 
-silverDF_quarantine = silverDF.where(silverDF.RunTime<0)
-silverDF_clean = silverDF.where(silverDF.RunTime>=0)
+silverDF_quarantine = silverDF.where((silverDF.RunTime<0)|(silverDF.Budget<1000000))
+silverDF_clean = silverDF.where((silverDF.RunTime>=0)&(silverDF.Budget>=1000000))
+
+print(silverDF.count())
+print(silverDF_quarantine.count())
+print(silverDF_clean.count())
+
+# COMMAND ----------
 
 display(silverDF_quarantine)
 
@@ -325,7 +331,7 @@ update = {"status": "clean.status"}
 
 # MAGIC %md
 # MAGIC 
-# MAGIC # Fix Quarantined Data
+# MAGIC # Fix Quarantined Data (Silver Update)
 
 # COMMAND ----------
 
@@ -338,7 +344,12 @@ silverqDF = qDF.select("movie","movie.*")
 
 movieSilver=silverqDF.join(langSilver,langSilver.OriginalLanguage==silverqDF.OriginalLanguage,"left").select("BackdropUrl","Budget","CreatedBy","CreatedDate",silverqDF.Id,"ImdbUrl",langSilver.id.alias("LangID"),"Overview","PosterUrl","Price","ReleaseDate","Revenue","RunTime","Tagline","Title","TmdbUrl","UpdatedBy","UpdatedDate")
 
-display(movieSilver)
+# display(movieSilver)
+
+# UPDATE BUDGET AND RUNTIME
+movieSilverFix=movieSilver.withColumn("Budget",lit(1000000)).withColumn("RunTime",abs(col("RunTime")))
+
+display(movieSilverFix)
 
 # COMMAND ----------
 
